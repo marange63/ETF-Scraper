@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.ishares.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(conda install:*)",
+      "mcp__ide__getDiagnostics",
+      "WebFetch(domain:www.ssga.com)",
+      "WebFetch(domain:etfdb.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(conda run:*)",
+      "WebSearch",
+      "WebFetch(domain:finnhub.io)",
+      "WebFetch(domain:api-ninjas.com)",
+      "WebFetch(domain:site.financialmodelingprep.com)",
+      "Bash(git --version)",
+      "Bash(git config:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
