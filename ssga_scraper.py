@@ -115,8 +115,9 @@ class SSGAScraper(ETFScraper):
 
         # Remove footer/disclaimer rows - keep only rows with valid weight data
         weight_col = next((c for c in df.columns if 'weight' in c.lower()), None)
-        if weight_col:
-            df = df[pd.to_numeric(df[weight_col], errors='coerce').notna()]
+        if weight_col is None:
+            raise ValueError(f"Could not find a weight column in holdings data for '{ticker}'")
+        df = df[pd.to_numeric(df[weight_col], errors='coerce').notna()]
 
         # Rename columns and add ETF Ticker
         df = df.rename(columns={weight_col: 'Weight', 'Ticker': 'Holding'})

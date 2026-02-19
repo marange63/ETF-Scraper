@@ -147,7 +147,7 @@ class ISharesScraper(ETFScraper):
         if as_of_date:
             params["asOfDate"] = as_of_date
 
-        response = requests.get(base_url, params=params, headers=self.HEADERS, timeout=30)
+        response = self._get_session().get(base_url, params=params, timeout=30)
         response.raise_for_status()
 
         # The CSV has metadata rows at the top, find where the actual data starts

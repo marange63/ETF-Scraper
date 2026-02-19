@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pandas as pd
 
 from ishares_scraper import ISharesScraper
@@ -5,11 +7,11 @@ from ssga_scraper import SSGAScraper
 from invesco_scraper import InvescoScraper
 
 
-# Registry of supported issuers and their scraper classes
+# Registry of supported issuers — stores instances so scrapers can cache state
 SCRAPER_REGISTRY = {
-    "ishares": ISharesScraper,
-    "ssga": SSGAScraper,
-    "invesco": InvescoScraper,
+    "ishares": ISharesScraper(),
+    "ssga": SSGAScraper(),
+    "invesco": InvescoScraper(),
 }
 
 
@@ -36,7 +38,7 @@ def get_portfolio_holdings(csv_path: str = "ETF-Portfolio.csv") -> pd.DataFrame:
                 remaining_weight = 100 - total_weight
                 placeholder = pd.DataFrame({
                     "ETF Ticker": [row["ETF Ticker"]],
-                    "Holding": [row["ETF Ticker"]],
+                    "Holding": ["OTHER"],
                     "Weight": [remaining_weight]
                 })
                 df = pd.concat([df, placeholder], ignore_index=True)
@@ -52,13 +54,14 @@ def get_portfolio_holdings(csv_path: str = "ETF-Portfolio.csv") -> pd.DataFrame:
     return pd.concat(holdings, ignore_index=True) if holdings else pd.DataFrame()
 
 
-def get_etf_holdings(ticker: str, issuer: str) -> pd.DataFrame:
+def get_etf_holdings(ticker: str, issuer: str, as_of_date: Optional[str] = None) -> pd.DataFrame:
     """
     Retrieve ETF holdings for a given ticker and issuer.
 
     Args:
         ticker: The ETF ticker symbol (e.g., "SPY", "IVV")
-        issuer: The ETF issuer name ("ishares" or "ssga")
+        issuer: The ETF issuer name ("ishares", "ssga", or "invesco")
+        as_of_date: Optional date string in YYYY-MM-DD format (iShares only)
 
     Returns:
         pandas DataFrame containing the holdings data
@@ -74,10 +77,7 @@ def get_etf_holdings(ticker: str, issuer: str) -> pd.DataFrame:
         supported = ", ".join(SCRAPER_REGISTRY.keys())
         raise ValueError(f"Unsupported issuer '{issuer}'. Supported issuers: {supported}")
 
-    scraper_class = SCRAPER_REGISTRY[issuer]
-    scraper = scraper_class()
-
-    return scraper.get_holdings(ticker)
+    return SCRAPER_REGISTRY[issuer].get_holdings(ticker, as_of_date)
 
 
 if __name__ == '__main__':
