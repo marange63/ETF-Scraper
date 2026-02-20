@@ -28,7 +28,7 @@ IDE: PyCharm with `ETF-Comp-Scrape` conda interpreter.
 | `ishares_scraper.py` | `ISharesScraper` - scrapes ishares.com (CSV download) |
 | `ssga_scraper.py` | `SSGAScraper` - scrapes ssga.com (Excel download) |
 | `invesco_scraper.py` | `InvescoScraper` - uses yfinance (top 10 holdings only) |
-| `test_invesco.py` | Ad-hoc exploration/debug script (not a test framework) |
+| `scratch/test_invesco.py` | Ad-hoc exploration/debug script (not a test framework) |
 
 ### ETFScraper Base Class
 
@@ -49,15 +49,13 @@ Inherited methods:
 | SSGA | No (ignored) | Full |
 | Invesco | No (ignored) | Top 10 only (yfinance limitation) |
 
-Note: `get_etf_holdings()` in `main.py` does not currently pass `as_of_date` to scrapers — it calls `scraper.get_holdings(ticker)` only.
-
 ### Scraper Registry
 
-`SCRAPER_REGISTRY` in `main.py`: `{"ishares": ISharesScraper, "ssga": SSGAScraper, "invesco": InvescoScraper}`
+`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
 
 ### Scraper Implementation Details
 
-**ISharesScraper**: Fetches the product listing page (`/us/products/etf-investments`) once at class level, parses anchor tags to build a `{ticker: {product_id, slug}}` index, then downloads holdings as CSV from `/{product_id}/{slug}/1467271812596.ajax?fileType=csv`. The CSV has metadata rows at the top — the scraper skips to the row containing `Ticker`, `Name`, and `Weight` headers, and stops at empty lines or disclaimer text.
+**ISharesScraper**: Fetches the product listing page (`/us/products/etf-investments`) once at class level, parses anchor tags to build a `{ticker: {product_id, slug}}` index, then downloads holdings as CSV from `/{product_id}/{slug}/1467271812596.ajax?fileType=csv`. The CSV has metadata rows at the top — the scraper skips to the row containing `Ticker`, `Name`, and `Weight` headers, and stops at empty lines or disclaimer text. Timeouts: 90s for the product listing page, 30s for the CSV download.
 
 **SSGAScraper**: Downloads directly from a predictable URL: `https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-{ticker_lowercase}.xlsx`. The Excel file has metadata rows at the top; the scraper finds the header row by scanning for `Name` and `Weight` values, then filters out footer rows using `pd.to_numeric`. `KNOWN_TICKERS` is a static list used only by `get_supported_tickers()` — the scraper attempts any ticker.
 
@@ -65,7 +63,7 @@ Note: `get_etf_holdings()` in `main.py` does not currently pass `as_of_date` to 
 
 ### Portfolio Batch Processing
 
-`get_portfolio_holdings()` reads `ETF-Portfolio.csv` (columns: `ETF Ticker`, `Provider Name`). If total weight < 100%, it inserts a placeholder row with the ETF ticker as both `ETF Ticker` and `Holding` to pad to 100%. Output is written to `holdings_output.csv`.
+`get_portfolio_holdings()` reads `ETF-Portfolio.csv` (columns: `ETF Ticker`, `Provider Name`). If total weight < 100%, it inserts a placeholder row with `Holding = "OTHER"` to pad to 100%. Failed ETFs are skipped with a warning. Output is written to `holdings_output.csv`.
 
 **Note**: `*.csv` files are gitignored. `ETF-Portfolio.csv` must be created locally — see the example format below.
 
@@ -76,6 +74,7 @@ from main import get_etf_holdings, get_portfolio_holdings
 
 # Single ETF
 df = get_etf_holdings("IVV", "ishares")
+df = get_etf_holdings("IVV", "ishares", as_of_date="2024-01-31")  # iShares only
 df = get_etf_holdings("SPY", "ssga")
 df = get_etf_holdings("QQQ", "invesco")
 
@@ -95,8 +94,8 @@ QQQ,invesco
 
 1. Create a scraper class inheriting from `ETFScraper`
 2. Implement `provider_name`, `get_holdings()`, and `get_supported_tickers()`
-3. Add to `SCRAPER_REGISTRY` in `main.py`
+3. Add an instance to `SCRAPER_REGISTRY` in `main.py`
 
 ## Network
 
-Timeouts: 60–90s. iShares uses a session with automatic retry (3 retries, backoff, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA and Invesco do not retry.
+Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA and Invesco do not retry.
