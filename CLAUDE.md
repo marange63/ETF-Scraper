@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ETF-Comp-Scrape scrapes ETF holdings data from fund issuers (iShares, State Street SPDR, Invesco) and returns pandas DataFrames.
+ETF-Comp-Scrape scrapes ETF holdings data from fund issuers (iShares, State Street SPDR, Invesco, VanEck) and returns pandas DataFrames.
 
 ## Setup
 
@@ -28,6 +28,7 @@ IDE: PyCharm with `ETF-Comp-Scrape` conda interpreter.
 | `ishares_scraper.py` | `ISharesScraper` - scrapes ishares.com (CSV download) |
 | `ssga_scraper.py` | `SSGAScraper` - scrapes ssga.com (Excel download) |
 | `invesco_scraper.py` | `InvescoScraper` - uses yfinance (top 10 holdings only) |
+| `vaneck_scraper.py` | `VanEckScraper` - scrapes vaneck.com (CSV or Excel download) |
 | `scratch/test_invesco.py` | Ad-hoc exploration/debug script (not a test framework) |
 
 ### ETFScraper Base Class
@@ -48,10 +49,11 @@ Inherited methods:
 | iShares | Yes | Full |
 | SSGA | No (ignored) | Full |
 | Invesco | No (ignored) | Top 10 only (yfinance limitation) |
+| VanEck | No (ignored) | Full |
 
 ### Scraper Registry
 
-`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
+`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper(), "vaneck": VanEckScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
 
 ### Scraper Implementation Details
 
@@ -60,6 +62,8 @@ Inherited methods:
 **SSGAScraper**: Downloads directly from a predictable URL: `https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-{ticker_lowercase}.xlsx`. The Excel file has metadata rows at the top; the scraper finds the header row by scanning for `Name` and `Weight` values, then filters out footer rows using `pd.to_numeric`. `KNOWN_TICKERS` is a static list used only by `get_supported_tickers()` — the scraper attempts any ticker.
 
 **InvescoScraper**: Uses `yf.Ticker(ticker).funds_data.top_holdings`. Weights come back as decimals (0–1) and are multiplied by 100. `KNOWN_TICKERS` is static; any ticker can be attempted.
+
+**VanEckScraper**: Downloads from `https://www.vaneck.com/us/en/investments/{slug}/downloads/holdings/`. The slug (e.g., `uranium-nuclear-energy-etf-nlr`) is not derivable from the ticker alone, so it must be added to `TICKER_SLUG_MAP` in `vaneck_scraper.py`. The response is parsed as Excel or CSV based on the `Content-Type` header. Footer rows are removed using `pd.to_numeric`. Prefers `Ticker` column for the holding identifier, falling back to `Name`.
 
 ### Portfolio Batch Processing
 
@@ -77,6 +81,7 @@ df = get_etf_holdings("IVV", "ishares")
 df = get_etf_holdings("IVV", "ishares", as_of_date="2024-01-31")  # iShares only
 df = get_etf_holdings("SPY", "ssga")
 df = get_etf_holdings("QQQ", "invesco")
+df = get_etf_holdings("NLR", "vaneck")
 
 # Batch from CSV (requires ETF-Portfolio.csv with "ETF Ticker" and "Provider Name" columns)
 df = get_portfolio_holdings("ETF-Portfolio.csv")
@@ -88,6 +93,7 @@ ETF Ticker,Provider Name
 IVV,ishares
 SPY,ssga
 QQQ,invesco
+NLR,vaneck
 ```
 
 ## Adding New Issuers
@@ -96,6 +102,10 @@ QQQ,invesco
 2. Implement `provider_name`, `get_holdings()`, and `get_supported_tickers()`
 3. Add an instance to `SCRAPER_REGISTRY` in `main.py`
 
+## Adding New VanEck Tickers
+
+VanEck tickers require a manual slug mapping. Find the slug in the VanEck product URL (`vaneck.com/us/en/investments/{slug}/`) and add `"TICKER": "slug"` to `TICKER_SLUG_MAP` in `vaneck_scraper.py`.
+
 ## Network
 
-Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA and Invesco do not retry.
+Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA, Invesco, and VanEck do not retry.

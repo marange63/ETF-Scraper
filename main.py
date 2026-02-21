@@ -5,6 +5,7 @@ import pandas as pd
 from ishares_scraper import ISharesScraper
 from ssga_scraper import SSGAScraper
 from invesco_scraper import InvescoScraper
+from vaneck_scraper import VanEckScraper
 
 
 # Registry of supported issuers — stores instances so scrapers can cache state
@@ -12,6 +13,7 @@ SCRAPER_REGISTRY = {
     "ishares": ISharesScraper(),
     "ssga": SSGAScraper(),
     "invesco": InvescoScraper(),
+    "vaneck": VanEckScraper(),
 }
 
 
