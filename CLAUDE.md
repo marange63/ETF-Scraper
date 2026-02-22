@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ETF-Comp-Scrape scrapes ETF holdings data from fund issuers (iShares, State Street SPDR, Invesco, VanEck, First Trust, ARK Investment Management) and returns pandas DataFrames.
+ETF-Comp-Scrape scrapes ETF holdings data from fund issuers (iShares, State Street SPDR, Invesco, VanEck, First Trust, ARK Investment Management, Global X) and returns pandas DataFrames.
 
 ## Setup
 
@@ -31,6 +31,7 @@ IDE: PyCharm with `ETF-Comp-Scrape` conda interpreter.
 | `vaneck_scraper.py` | `VanEckScraper` - scrapes vaneck.com (CSV or Excel download) |
 | `firsttrust_scraper.py` | `FirstTrustScraper` - scrapes ftportfolios.com (HTML table) |
 | `ark_scraper.py` | `ARKScraper` - scrapes assets.ark-funds.com (direct CSV download) |
+| `globalx_scraper.py` | `GlobalXScraper` - scrapes globalxetfs.com (fund page → dated CSV) |
 | `scratch/test_invesco.py` | Ad-hoc exploration/debug script (not a test framework) |
 
 ### ETFScraper Base Class
@@ -54,10 +55,11 @@ Inherited methods:
 | VanEck | No (ignored) | Full |
 | First Trust | No (ignored) | Full |
 | ARK | No (ignored) | Full |
+| Global X | No (ignored) | Full |
 
 ### Scraper Registry
 
-`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper(), "vaneck": VanEckScraper(), "firsttrust": FirstTrustScraper(), "ark": ARKScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
+`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper(), "vaneck": VanEckScraper(), "firsttrust": FirstTrustScraper(), "ark": ARKScraper(), "globalx": GlobalXScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
 
 ### Scraper Implementation Details
 
@@ -72,6 +74,8 @@ Inherited methods:
 **FirstTrustScraper**: Scrapes `https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker={ticker}` — any ticker can be attempted. Holdings are in an HTML table with columns `Security Name`, `Identifier`, `CUSIP`, `Classification`, `Shares / Quantity`, `Market Value`, `Weighting`. The page uses deeply nested layout tables, so the correct inner table is found using `recursive=False` to match only direct children. `Identifier` is used as the holding symbol. Weights are `"9.05%"` strings — `%` is stripped before conversion.
 
 **ARKScraper**: Downloads a direct CSV from `https://assets.ark-funds.com/fund-documents/funds-etf-csv/{filename}.csv`. The filename includes the full fund name (e.g., `ARK_INNOVATION_ETF_ARKK_HOLDINGS`) and must be added to `TICKER_FILENAME_MAP` in `ark_scraper.py`. The CSV has a clean single header row with columns `date`, `fund`, `company`, `ticker`, `cusip`, `shares`, `market value ($)`, `weight (%)`. No metadata or footer rows to skip. Weights are `"10.76%"` strings — `%` is stripped before conversion.
+
+**GlobalXScraper**: Two-step fetch — first loads `https://www.globalxetfs.com/funds/{ticker}` and uses a regex to extract the dated CSV link (e.g., `botz_full-holdings_20260220.csv`) embedded in the page HTML; then downloads that CSV. The CSV has 2 metadata rows at the top (fund name, date), then a header row with columns `% of Net Assets`, `Ticker`, `Name`, etc. Weights are plain floats (no `%` sign). Any ticker can be attempted without a mapping.
 
 ### Portfolio Batch Processing
 
@@ -92,6 +96,7 @@ df = get_etf_holdings("QQQ", "invesco")
 df = get_etf_holdings("NLR", "vaneck")
 df = get_etf_holdings("CIBR", "firsttrust")
 df = get_etf_holdings("ARKK", "ark")
+df = get_etf_holdings("BOTZ", "globalx")
 
 # Batch from CSV (requires ETF-Portfolio.csv with "ETF Ticker" and "Provider Name" columns)
 df = get_portfolio_holdings("ETF-Portfolio.csv")
@@ -106,6 +111,7 @@ QQQ,invesco
 NLR,vaneck
 CIBR,firsttrust
 ARKK,ark
+BOTZ,globalx
 ```
 
 ## Adding New Issuers
@@ -124,4 +130,4 @@ ARK tickers require a manual filename mapping. Find the CSV filename at `ark-fun
 
 ## Network
 
-Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA, Invesco, VanEck, First Trust, and ARK do not retry.
+Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA, Invesco, VanEck, First Trust, ARK, and Global X do not retry.

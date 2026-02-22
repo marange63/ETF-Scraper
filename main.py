@@ -11,6 +11,7 @@ from invesco_scraper import InvescoScraper
 from vaneck_scraper import VanEckScraper
 from firsttrust_scraper import FirstTrustScraper
 from ark_scraper import ARKScraper
+from globalx_scraper import GlobalXScraper
 
 
 # Registry of supported issuers — stores instances so scrapers can cache state
@@ -21,6 +22,7 @@ SCRAPER_REGISTRY = {
     "vaneck": VanEckScraper(),
     "firsttrust": FirstTrustScraper(),
     "ark": ARKScraper(),
+    "globalx": GlobalXScraper(),
 }
 
 
