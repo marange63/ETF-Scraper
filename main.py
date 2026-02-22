@@ -1,6 +1,9 @@
+import warnings
 from typing import Optional
 
 import pandas as pd
+
+warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
 
 from ishares_scraper import ISharesScraper
 from ssga_scraper import SSGAScraper
