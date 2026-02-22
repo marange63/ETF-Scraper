@@ -32,6 +32,7 @@ IDE: PyCharm with `ETF-Comp-Scrape` conda interpreter.
 | `firsttrust_scraper.py` | `FirstTrustScraper` - scrapes ftportfolios.com (HTML table) |
 | `ark_scraper.py` | `ARKScraper` - scrapes assets.ark-funds.com (direct CSV download) |
 | `globalx_scraper.py` | `GlobalXScraper` - scrapes globalxetfs.com (fund page → dated CSV) |
+| `pacer_scraper.py` | `PacerScraper` - scrapes paceretfs.com (direct CSV download) |
 | `scratch/` | Ad-hoc exploration/debug scripts (e.g. `test_invesco.py`, `debug_ark.py`) — not a test framework |
 
 ### ETFScraper Base Class
@@ -56,10 +57,11 @@ Inherited methods:
 | First Trust | No (ignored) | Full |
 | ARK | No (ignored) | Full |
 | Global X | No (ignored) | Full |
+| Pacer | No (ignored) | Full |
 
 ### Scraper Registry
 
-`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper(), "vaneck": VanEckScraper(), "firsttrust": FirstTrustScraper(), "ark": ARKScraper(), "globalx": GlobalXScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
+`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes) and supports common aliases (e.g. `"spdr series trust"` → `SSGAScraper`, `"blackrock"` → `ISharesScraper`, `"pacer etfs"` → `PacerScraper`). Ticker and issuer strings are stripped of whitespace in `get_etf_holdings()` before lookup. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
 
 ### Scraper Implementation Details
 
@@ -76,6 +78,8 @@ Inherited methods:
 **ARKScraper**: Downloads a direct CSV from `https://assets.ark-funds.com/fund-documents/funds-etf-csv/{filename}.csv`. The filename includes the full fund name (e.g., `ARK_INNOVATION_ETF_ARKK_HOLDINGS`) and must be added to `TICKER_FILENAME_MAP` in `ark_scraper.py`. The CSV has a clean single header row with columns `date`, `fund`, `company`, `ticker`, `cusip`, `shares`, `market value ($)`, `weight (%)`. No metadata or footer rows to skip. Weights are `"10.76%"` strings — `%` is stripped before conversion.
 
 **GlobalXScraper**: Two-step fetch — first loads `https://www.globalxetfs.com/funds/{ticker}` and uses a regex to extract the full dated CSV URL (matching `https://assets.globalxetfs.com/funds/holdings/...-full-holdings-....csv`) from the page HTML; then downloads that CSV. The CSV has 2 metadata rows at the top (fund name, date), then a header row with columns `% of Net Assets`, `Ticker`, `Name`, etc. Weights are plain floats (no `%` sign). Any ticker can be attempted without a mapping.
+
+**PacerScraper**: Downloads directly from `https://www.paceretfs.com/usbank/live/fsb0.pacer.x330.{TICKER}_Holdings.csv` — ticker must be uppercase in the URL. The CSV has a single header row with columns `Date`, `Account`, `StockTicker`, `CUSIP`, `SecurityName`, `Shares`, `Price`, `MarketValue`, `Weightings`, `NetAssets`, `SharesOutstanding`, `CreationUnits`, `MoneyMarketFlag`. No metadata rows to skip. `StockTicker` is used as the holding identifier. Weights are `"13.67%"` strings — `%` is stripped before conversion. Cash/money market rows are included as data and filtered out via `pd.to_numeric`. Any ticker can be attempted without a mapping.
 
 ### Portfolio Batch Processing
 
@@ -97,6 +101,7 @@ df = get_etf_holdings("NLR", "vaneck")
 df = get_etf_holdings("CIBR", "firsttrust")
 df = get_etf_holdings("ARKK", "ark")
 df = get_etf_holdings("BOTZ", "globalx")
+df = get_etf_holdings("SRVR", "pacer")
 
 # Batch from CSV (requires ETF-Portfolio.csv with "ETF Ticker" and "Provider Name" columns)
 df = get_portfolio_holdings("ETF-Portfolio.csv")
@@ -112,6 +117,7 @@ NLR,vaneck
 CIBR,firsttrust
 ARKK,ark
 BOTZ,globalx
+SRVR,pacer
 ```
 
 ## Adding New Issuers

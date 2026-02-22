@@ -12,6 +12,7 @@ from vaneck_scraper import VanEckScraper
 from firsttrust_scraper import FirstTrustScraper
 from ark_scraper import ARKScraper
 from globalx_scraper import GlobalXScraper
+from pacer_scraper import PacerScraper
 
 
 # Registry of supported issuers — stores instances so scrapers can cache state
@@ -19,6 +20,7 @@ _ssga       = SSGAScraper()
 _ishares    = ISharesScraper()
 _ark        = ARKScraper()
 _globalx    = GlobalXScraper()
+_pacer      = PacerScraper()
 SCRAPER_REGISTRY = {
     "ishares": _ishares,
     "blackrock": _ishares,
@@ -33,6 +35,8 @@ SCRAPER_REGISTRY = {
     "ark investment management": _ark,
     "globalx": _globalx,
     "global x": _globalx,
+    "pacer": _pacer,
+    "pacer etfs": _pacer,
 }
 
 
