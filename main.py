@@ -9,6 +9,7 @@ from ishares_scraper import ISharesScraper
 from ssga_scraper import SSGAScraper
 from invesco_scraper import InvescoScraper
 from vaneck_scraper import VanEckScraper
+from firsttrust_scraper import FirstTrustScraper
 
 
 # Registry of supported issuers — stores instances so scrapers can cache state
@@ -17,6 +18,7 @@ SCRAPER_REGISTRY = {
     "ssga": SSGAScraper(),
     "invesco": InvescoScraper(),
     "vaneck": VanEckScraper(),
+    "firsttrust": FirstTrustScraper(),
 }
 
 
