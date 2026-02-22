@@ -15,14 +15,24 @@ from globalx_scraper import GlobalXScraper
 
 
 # Registry of supported issuers — stores instances so scrapers can cache state
+_ssga       = SSGAScraper()
+_ishares    = ISharesScraper()
+_ark        = ARKScraper()
+_globalx    = GlobalXScraper()
 SCRAPER_REGISTRY = {
-    "ishares": ISharesScraper(),
-    "ssga": SSGAScraper(),
+    "ishares": _ishares,
+    "blackrock": _ishares,
+    "ssga": _ssga,
+    "spdr": _ssga,
+    "spdr series trust": _ssga,
+    "state street": _ssga,
     "invesco": InvescoScraper(),
     "vaneck": VanEckScraper(),
     "firsttrust": FirstTrustScraper(),
-    "ark": ARKScraper(),
-    "globalx": GlobalXScraper(),
+    "ark": _ark,
+    "ark investment management": _ark,
+    "globalx": _globalx,
+    "global x": _globalx,
 }
 
 
@@ -83,7 +93,8 @@ def get_etf_holdings(ticker: str, issuer: str, as_of_date: Optional[str] = None)
         ValueError: If the ticker is not found
         requests.RequestException: If the HTTP request fails
     """
-    issuer = issuer.lower()
+    ticker = ticker.strip()
+    issuer = issuer.strip().lower()
 
     if issuer not in SCRAPER_REGISTRY:
         supported = ", ".join(SCRAPER_REGISTRY.keys())
