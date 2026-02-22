@@ -32,7 +32,7 @@ IDE: PyCharm with `ETF-Comp-Scrape` conda interpreter.
 | `firsttrust_scraper.py` | `FirstTrustScraper` - scrapes ftportfolios.com (HTML table) |
 | `ark_scraper.py` | `ARKScraper` - scrapes assets.ark-funds.com (direct CSV download) |
 | `globalx_scraper.py` | `GlobalXScraper` - scrapes globalxetfs.com (fund page → dated CSV) |
-| `scratch/test_invesco.py` | Ad-hoc exploration/debug script (not a test framework) |
+| `scratch/` | Ad-hoc exploration/debug scripts (e.g. `test_invesco.py`, `debug_ark.py`) — not a test framework |
 
 ### ETFScraper Base Class
 
@@ -63,7 +63,7 @@ Inherited methods:
 
 ### Scraper Implementation Details
 
-**ISharesScraper**: Fetches the product listing page (`/us/products/etf-investments`) once at class level, parses anchor tags to build a `{ticker: {product_id, slug}}` index, then downloads holdings as CSV from `/{product_id}/{slug}/1467271812596.ajax?fileType=csv`. The CSV has metadata rows at the top — the scraper skips to the row containing `Ticker`, `Name`, and `Weight` headers, and stops at empty lines or disclaimer text. Timeouts: 90s for the product listing page, 30s for the CSV download.
+**ISharesScraper**: Fetches the product listing page (`/us/products/etf-investments`) once at class level, parses anchor tags to build a `{ticker: {product_id, slug}}` index, then downloads holdings as CSV from `/{product_id}/{slug}/1467271812596.ajax` with query params `fileType=csv`, `fileName={ticker}_holdings`, `dataType=fund`, and optionally `asOfDate`. The CSV has metadata rows at the top — the scraper skips to the row containing `Ticker`, `Name`, and `Weight` headers, and stops at empty lines or disclaimer text. Timeouts: 90s for the product listing page, 30s for the CSV download.
 
 **SSGAScraper**: Downloads directly from a predictable URL: `https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-{ticker_lowercase}.xlsx`. The Excel file has metadata rows at the top; the scraper finds the header row by scanning for `Name` and `Weight` values, then filters out footer rows using `pd.to_numeric`. `KNOWN_TICKERS` is a static list used only by `get_supported_tickers()` — the scraper attempts any ticker.
 
@@ -75,11 +75,11 @@ Inherited methods:
 
 **ARKScraper**: Downloads a direct CSV from `https://assets.ark-funds.com/fund-documents/funds-etf-csv/{filename}.csv`. The filename includes the full fund name (e.g., `ARK_INNOVATION_ETF_ARKK_HOLDINGS`) and must be added to `TICKER_FILENAME_MAP` in `ark_scraper.py`. The CSV has a clean single header row with columns `date`, `fund`, `company`, `ticker`, `cusip`, `shares`, `market value ($)`, `weight (%)`. No metadata or footer rows to skip. Weights are `"10.76%"` strings — `%` is stripped before conversion.
 
-**GlobalXScraper**: Two-step fetch — first loads `https://www.globalxetfs.com/funds/{ticker}` and uses a regex to extract the dated CSV link (e.g., `botz_full-holdings_20260220.csv`) embedded in the page HTML; then downloads that CSV. The CSV has 2 metadata rows at the top (fund name, date), then a header row with columns `% of Net Assets`, `Ticker`, `Name`, etc. Weights are plain floats (no `%` sign). Any ticker can be attempted without a mapping.
+**GlobalXScraper**: Two-step fetch — first loads `https://www.globalxetfs.com/funds/{ticker}` and uses a regex to extract the full dated CSV URL (matching `https://assets.globalxetfs.com/funds/holdings/...-full-holdings-....csv`) from the page HTML; then downloads that CSV. The CSV has 2 metadata rows at the top (fund name, date), then a header row with columns `% of Net Assets`, `Ticker`, `Name`, etc. Weights are plain floats (no `%` sign). Any ticker can be attempted without a mapping.
 
 ### Portfolio Batch Processing
 
-`get_portfolio_holdings()` reads `ETF-Portfolio.csv` (columns: `ETF Ticker`, `Provider Name`). If total weight < 100%, it inserts a placeholder row with `Holding = "OTHER"` to pad to 100%. Failed ETFs are skipped with a warning. Output is written to `holdings_output.csv`.
+`get_portfolio_holdings()` reads `ETF-Portfolio.csv` (columns: `ETF Ticker`, `Provider Name`). If total weight < 100%, it inserts a placeholder row with `Holding = "OTHER"` to pad to 100%. For each ETF it prints a summary line (holdings count, total weight, top 10 weight, top holding) to stdout. Failed ETFs are skipped with a warning. Output is written to `holdings_output.csv`.
 
 **Note**: `*.csv` files are gitignored. `ETF-Portfolio.csv` must be created locally — see the example format below.
 

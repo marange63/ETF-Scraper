@@ -92,6 +92,58 @@ def get_etf_holdings(ticker: str, issuer: str, as_of_date: Optional[str] = None)
     return SCRAPER_REGISTRY[issuer].get_holdings(ticker, as_of_date)
 
 
+def show_holdings_inspector(df: pd.DataFrame) -> None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    root = tk.Tk()
+    root.title("ETF Holdings Inspector")
+    root.geometry("900x550")
+
+    tickers = sorted(df["ETF Ticker"].unique().tolist())
+
+    # ── Left panel: label + combobox ──────────────────────────────────────
+    left = tk.Frame(root, width=180)
+    left.pack(side=tk.LEFT, fill=tk.Y, padx=(12, 6), pady=12)
+    left.pack_propagate(False)
+
+    tk.Label(left, text="ETF Ticker", font=("", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
+    selected = tk.StringVar(value=tickers[0] if tickers else "")
+    combo = ttk.Combobox(left, textvariable=selected, values=tickers, state="readonly", width=14)
+    combo.pack(fill=tk.X)
+
+    # ── Right panel: treeview + scrollbar ────────────────────────────────
+    right = tk.Frame(root)
+    right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(6, 12), pady=12)
+
+    tree = ttk.Treeview(right, columns=("Holding", "Weight"), show="headings")
+    tree.heading("Holding", text="Holding")
+    tree.heading("Weight",  text="Weight (%)")
+    tree.column("Holding", width=260, anchor=tk.W)
+    tree.column("Weight",  width=100, anchor=tk.E)
+
+    vsb = ttk.Scrollbar(right, orient=tk.VERTICAL, command=tree.yview)
+    tree.configure(yscrollcommand=vsb.set)
+    tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
+    # ── Exit button — bottom-right ────────────────────────────────────────
+    btn_bar = tk.Frame(root)
+    btn_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=12, pady=(0, 10))
+    tk.Button(btn_bar, text="Exit", width=10, command=root.destroy).pack(side=tk.RIGHT)
+
+    # ── Populate table whenever selection changes ─────────────────────────
+    def _refresh(*_):
+        tree.delete(*tree.get_children())
+        for _, row in df[df["ETF Ticker"] == selected.get()].iterrows():
+            tree.insert("", tk.END, values=(row["Holding"], f"{row['Weight']:.4f}"))
+
+    selected.trace_add("write", _refresh)
+    _refresh()          # initial populate
+
+    root.mainloop()     # blocks until window is closed
+
+
 if __name__ == '__main__':
     # Example using the get_portfolio_holdings function
     print("=" * 60)
@@ -110,5 +162,6 @@ if __name__ == '__main__':
         output_path = "holdings_output.csv"
         holdings_df.to_csv(output_path, index=False)
         print(f"\nHoldings saved to {output_path}")
+        show_holdings_inspector(holdings_df)
     except Exception as e:
         print(f"Error retrieving portfolio holdings: {e}")
