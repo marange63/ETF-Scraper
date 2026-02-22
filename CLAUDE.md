@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ETF-Comp-Scrape scrapes ETF holdings data from fund issuers (iShares, State Street SPDR, Invesco, VanEck, First Trust) and returns pandas DataFrames.
+ETF-Comp-Scrape scrapes ETF holdings data from fund issuers (iShares, State Street SPDR, Invesco, VanEck, First Trust, ARK Investment Management) and returns pandas DataFrames.
 
 ## Setup
 
@@ -30,6 +30,7 @@ IDE: PyCharm with `ETF-Comp-Scrape` conda interpreter.
 | `invesco_scraper.py` | `InvescoScraper` - uses yfinance (top 10 holdings only) |
 | `vaneck_scraper.py` | `VanEckScraper` - scrapes vaneck.com (CSV or Excel download) |
 | `firsttrust_scraper.py` | `FirstTrustScraper` - scrapes ftportfolios.com (HTML table) |
+| `ark_scraper.py` | `ARKScraper` - scrapes assets.ark-funds.com (direct CSV download) |
 | `scratch/test_invesco.py` | Ad-hoc exploration/debug script (not a test framework) |
 
 ### ETFScraper Base Class
@@ -52,10 +53,11 @@ Inherited methods:
 | Invesco | No (ignored) | Top 10 only (yfinance limitation) |
 | VanEck | No (ignored) | Full |
 | First Trust | No (ignored) | Full |
+| ARK | No (ignored) | Full |
 
 ### Scraper Registry
 
-`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper(), "vaneck": VanEckScraper(), "firsttrust": FirstTrustScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
+`SCRAPER_REGISTRY` in `main.py` stores **instances** (not classes): `{"ishares": ISharesScraper(), "ssga": SSGAScraper(), "invesco": InvescoScraper(), "vaneck": VanEckScraper(), "firsttrust": FirstTrustScraper(), "ark": ARKScraper()}`. This allows scrapers to cache state across calls (iShares caches its ETF index at the class level after the first fetch).
 
 ### Scraper Implementation Details
 
@@ -68,6 +70,8 @@ Inherited methods:
 **VanEckScraper**: Downloads from `https://www.vaneck.com/us/en/investments/{slug}/downloads/holdings/`. The slug (e.g., `uranium-nuclear-energy-etf-nlr`) is not derivable from the ticker alone, so it must be added to `TICKER_SLUG_MAP` in `vaneck_scraper.py`. The response is parsed as Excel or CSV based on the `Content-Type` header. Footer rows are removed using `pd.to_numeric`. Prefers `Ticker` column for the holding identifier, falling back to `Name`.
 
 **FirstTrustScraper**: Scrapes `https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker={ticker}` — any ticker can be attempted. Holdings are in an HTML table with columns `Security Name`, `Identifier`, `CUSIP`, `Classification`, `Shares / Quantity`, `Market Value`, `Weighting`. The page uses deeply nested layout tables, so the correct inner table is found using `recursive=False` to match only direct children. `Identifier` is used as the holding symbol. Weights are `"9.05%"` strings — `%` is stripped before conversion.
+
+**ARKScraper**: Downloads a direct CSV from `https://assets.ark-funds.com/fund-documents/funds-etf-csv/{filename}.csv`. The filename includes the full fund name (e.g., `ARK_INNOVATION_ETF_ARKK_HOLDINGS`) and must be added to `TICKER_FILENAME_MAP` in `ark_scraper.py`. The CSV has a clean single header row with columns `date`, `fund`, `company`, `ticker`, `cusip`, `shares`, `market value ($)`, `weight (%)`. No metadata or footer rows to skip. Weights are `"10.76%"` strings — `%` is stripped before conversion.
 
 ### Portfolio Batch Processing
 
@@ -87,6 +91,7 @@ df = get_etf_holdings("SPY", "ssga")
 df = get_etf_holdings("QQQ", "invesco")
 df = get_etf_holdings("NLR", "vaneck")
 df = get_etf_holdings("CIBR", "firsttrust")
+df = get_etf_holdings("ARKK", "ark")
 
 # Batch from CSV (requires ETF-Portfolio.csv with "ETF Ticker" and "Provider Name" columns)
 df = get_portfolio_holdings("ETF-Portfolio.csv")
@@ -100,6 +105,7 @@ SPY,ssga
 QQQ,invesco
 NLR,vaneck
 CIBR,firsttrust
+ARKK,ark
 ```
 
 ## Adding New Issuers
@@ -112,6 +118,10 @@ CIBR,firsttrust
 
 VanEck tickers require a manual slug mapping. Find the slug in the VanEck product URL (`vaneck.com/us/en/investments/{slug}/`) and add `"TICKER": "slug"` to `TICKER_SLUG_MAP` in `vaneck_scraper.py`.
 
+## Adding New ARK Tickers
+
+ARK tickers require a manual filename mapping. Find the CSV filename at `ark-funds.com/download-fund-materials` and add `"TICKER": "filename_without_extension"` to `TICKER_FILENAME_MAP` in `ark_scraper.py`.
+
 ## Network
 
-Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA, Invesco, VanEck, and First Trust do not retry.
+Timeouts: 60–90s for initial page fetches, 30s for data downloads. iShares uses a session with automatic retry (3 retries, backoff factor 1, on 429/5xx) and caches the ETF index at class level after the first fetch. SSGA, Invesco, VanEck, First Trust, and ARK do not retry.

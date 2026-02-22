@@ -10,6 +10,7 @@ from ssga_scraper import SSGAScraper
 from invesco_scraper import InvescoScraper
 from vaneck_scraper import VanEckScraper
 from firsttrust_scraper import FirstTrustScraper
+from ark_scraper import ARKScraper
 
 
 # Registry of supported issuers — stores instances so scrapers can cache state
@@ -19,6 +20,7 @@ SCRAPER_REGISTRY = {
     "invesco": InvescoScraper(),
     "vaneck": VanEckScraper(),
     "firsttrust": FirstTrustScraper(),
+    "ark": ARKScraper(),
 }
 
 
@@ -53,7 +55,8 @@ def get_portfolio_holdings(csv_path: str = "ETF-Portfolio.csv") -> pd.DataFrame:
 
             num_holdings = len(df)
             top10_weight = df.head(10)["Weight"].sum()
-            print(f"{row['ETF Ticker']:6} | Holdings: {num_holdings:4} | Total Weight: {total_weight:6.2f}% | Top 10 Weight: {top10_weight:5.2f}%")
+            top_holding = df.iloc[0]
+            print(f"{row['ETF Ticker']:6} | Holdings: {num_holdings:4} | Total Weight: {total_weight:6.2f}% | Top 10 Weight: {top10_weight:5.2f}% | Top Holding: {top_holding['Holding']} ({top_holding['Weight']:.2f}%)")
             holdings.append(df)
         except Exception as e:
             print(f"Warning: Failed to fetch {row['ETF Ticker']}: {e}")
